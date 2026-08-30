@@ -1,0 +1,15 @@
+{
+  "name": "revenue-recovery-ai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w web",
+    "test": "npm run test -w server"
+  },
+  "workspaces": ["shared", "server", "web"],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

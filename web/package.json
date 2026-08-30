@@ -1,0 +1,8 @@
+{
+  "name": "web",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "tsc -b && vite build" },
+  "dependencies": { "@recover-ai/shared": "*", "@vitejs/plugin-react": "latest", "vite": "latest", "react": "latest", "react-dom": "latest" },
+  "devDependencies": { "@types/react": "latest", "@types/react-dom": "latest", "typescript": "^5.9.2" }
+}
