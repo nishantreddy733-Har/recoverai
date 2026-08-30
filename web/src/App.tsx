@@ -78,7 +78,7 @@ export default function App() {
         <div className="decision">{item.decision ? <><b>{label(item.decision.action)}</b><span>{Math.round(item.decision.confidence * 100)}% confidence</span><small>{item.decision.reason}</small></> : <span>Awaiting diagnosis</span>}</div>
         <button disabled={item.status !== "pending" || busy === item.id} onClick={(event) => { event.stopPropagation(); void processCase(item.id); }}>{busy === item.id ? "Processing…" : item.status === "pending" ? "Run recovery" : "Processed"}</button>
       </article>)}</div>
-      {visibleCases.length < filteredCases.length && <button className="load-more" onClick={() => setVisibleLimit((limit) => limit + 12)}>Show 12 more</button>}
+      {visibleCases.length < filteredCases.length && <button className="load-more" onClick={() => setVisibleLimit((limit) => limit + 12)}>Show {Math.min(12, filteredCases.length - visibleCases.length)} more</button>}
     </section>
     {selected && <section className="case-detail" aria-live="polite">
       <div className="detail-heading"><div><span className="eyebrow">CASE EXPLANATION</span><h2>{selected.customerName} · {selected.id}</h2><p>{label(selected.failureCode)} on {new Date(selected.failedAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p></div><span className={`status ${selected.status}`}>{selected.status}</span></div>
