@@ -42,7 +42,9 @@ export default function App() {
   };
   const resetBatch = async () => {
     setBatchBusy(true); await fetch("/api/cases/reset", { method: "POST" });
-    setBatchResult(null); setAudit([]); await refresh(); setBatchBusy(false);
+    setBatchResult(null);
+    await Promise.all([refresh(), selectedId ? refreshAudit(selectedId) : Promise.resolve()]);
+    setBatchBusy(false);
   };
   const sendTestWebhook = async () => {
     setWebhookBusy(true); setWebhookMessage(null);
@@ -57,7 +59,7 @@ export default function App() {
   const filteredCases = cases.filter((item) => {
     const matchesStatus = caseFilter === "all" || item.status === caseFilter;
     const query = caseSearch.trim().toLowerCase();
-    const matchesSearch = !query || `${item.customerName} ${item.subscriptionId} ${item.failureCode}`.toLowerCase().includes(query);
+    const matchesSearch = !query || `${item.customerName} ${item.subscriptionId} ${label(item.failureCode)}`.toLowerCase().includes(query);
     return matchesStatus && matchesSearch;
   });
   const visibleCases = filteredCases.slice(0, visibleLimit);
