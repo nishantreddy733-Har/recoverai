@@ -19,14 +19,58 @@ The MVP deliberately simulates payment retries and customer messages. No real ch
 or message is sent. An external provider can later replace the simulator behind the
 same action-executor interface.
 
-## Run locally
+## Prerequisites
+
+- Node.js 20 or newer
+- npm 10 or newer
+- Git
+
+No Razorpay account or credentials are required for the local synthetic demo.
+
+## Clone and run
 
 ```bash
+git clone <PUBLIC_REPOSITORY_URL>
+cd revenue-recovery-ai
 npm install
+npm run build
+npm test
 npm run dev
 ```
 
 Open `http://localhost:5173`. The API runs on `http://localhost:3001`.
+
+The public repository URL is intentionally a placeholder until the prepared local Git
+repository is published. On Windows PowerShell, the commands are the same.
+
+### Environment setup
+
+Copy `.env.example` to `.env` and replace the development webhook secret before
+connecting an external webhook. The local dashboard demo works without this step and
+uses a clearly identified development-only fallback secret.
+
+Never commit `.env`, a Razorpay key secret, or a production webhook secret.
+
+## Available commands
+
+| Command | Purpose |
+|---|---|
+| `npm install` | Install all workspace dependencies |
+| `npm run dev` | Run the React dashboard and Express API |
+| `npm run build` | Compile all packages and create the production web build |
+| `npm test` | Run decision, evaluation and webhook-security tests |
+
+## Workspace structure
+
+```text
+revenue-recovery-ai/
+├── shared/   # Domain contracts used by browser and server
+├── server/   # API, decisions, guardrails, webhooks, storage and tests
+├── web/      # React operator dashboard
+├── ARCHITECTURE.md
+├── PANEL_NOTES.md
+└── SUBMISSION_DRAFT.md
+```
 
 ## Demo walkthrough
 
@@ -38,6 +82,12 @@ Open `http://localhost:5173`. The API runs on `http://localhost:3001`.
 
 The queue includes status filters, search and progressive loading so the complete
 batch remains usable during a short panel demonstration.
+
+### Return to a clean demonstration
+
+Click **Reset batch** to restore 50 pending synthetic cases, clear accepted webhook
+event IDs and return recovered revenue to zero. Runtime state is stored locally in
+`server/data/recovery-store.json`; this generated file is excluded from Git.
 
 ## Verified results
 
@@ -69,6 +119,52 @@ application never presents simulated money as production revenue.
 - Keep at least 24 hours between retries.
 - Low-confidence diagnoses are escalated for human review.
 - Every recommendation and execution is logged with its reason.
+
+## API surface
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/cases` | List recovery cases |
+| `GET /api/cases/:id/audit` | Read one case's audit timeline |
+| `POST /api/cases/:id/process` | Process one pending case |
+| `POST /api/cases/process-batch` | Process every pending case |
+| `POST /api/cases/reset` | Restore the synthetic demonstration batch |
+| `GET /api/metrics` | Read recovery metrics |
+| `GET /api/evaluation` | Read held-out decision-quality results |
+| `POST /api/webhooks/razorpay` | Receive a signed Razorpay-style webhook |
+| `POST /api/demo/razorpay-failure` | Generate a safe local signed test event |
+
+## Razorpay Test Mode status
+
+Razorpay Test Mode is **not connected yet**. No Razorpay API key ID, API key secret or
+merchant credential was obtained for this repository.
+
+The current integration implements the server-side `payment.failed` webhook contract:
+raw-body HMAC-SHA256 signature validation, provider-field normalization and persistent
+event-ID idempotency. The dashboard's **Send test failure** control exercises that same
+code using a locally generated signed event.
+
+To validate genuine Razorpay Test Mode delivery:
+
+1. The Razorpay account Owner or Admin enables Test Mode and generates Test API keys
+   from **Account & Settings → API Keys**. Keep the key secret outside source control.
+2. Deploy RecoverAI to a public HTTPS address.
+3. Set `RAZORPAY_WEBHOOK_SECRET` in the hosted server environment.
+4. In Razorpay Test Mode, add `https://<host>/api/webhooks/razorpay` as a webhook,
+   choose the same webhook secret and subscribe to `payment.failed`.
+5. Use a separate Razorpay Test Mode checkout/order flow to trigger a test failure.
+6. Confirm the accepted event creates exactly one case and that replaying the same
+   event ID does not create a duplicate.
+
+The current project does not create Razorpay orders or payments, so Test API keys are
+not consumed by the code yet. They should be added only when an outbound Razorpay API
+adapter is implemented. Test Mode still uses simulated payments—no real money moves.
+
+Official references:
+
+- [Generate Razorpay Test Mode API keys](https://razorpay.com/docs/payments/dashboard/account-settings/api-keys/)
+- [Understand Test and Live modes](https://razorpay.com/docs/payments/dashboard/test-live-modes/)
+- [Validate and test Razorpay webhooks](https://razorpay.com/docs/webhooks/validate-test/)
 
 ## Day 1 architecture
 
