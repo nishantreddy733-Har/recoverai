@@ -4,3 +4,5 @@ dist/
 *.log
 *.tsbuildinfo
 server/data/recovery-store.json
+
+.vercel
