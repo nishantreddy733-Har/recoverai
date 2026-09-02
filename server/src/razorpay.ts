@@ -7,6 +7,36 @@ export type RazorpayWebhook = {
   payload?: { payment?: { entity?: Record<string, unknown> } };
 };
 
+export type RazorpayConnectionResult = { ok: boolean; message: string; checkedAt: string };
+
+export function detectRazorpayKeyMode(keyId: string | undefined): "test" | "live" | "unknown" | "missing" {
+  if (!keyId) return "missing";
+  if (keyId.startsWith("rzp_test_")) return "test";
+  if (keyId.startsWith("rzp_live_")) return "live";
+  return "unknown";
+}
+
+export async function verifyRazorpayTestConnection(
+  keyId: string | undefined,
+  keySecret: string | undefined,
+  request: typeof fetch = fetch,
+): Promise<RazorpayConnectionResult> {
+  const checkedAt = new Date().toISOString();
+  if (!keyId || !keySecret) return { ok: false, message: "Test API keys are not configured", checkedAt };
+  if (detectRazorpayKeyMode(keyId) !== "test") return { ok: false, message: "Only Razorpay Test Mode keys are allowed", checkedAt };
+  try {
+    const response = await request("https://api.razorpay.com/v1/payments?count=1", {
+      headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`, Accept: "application/json" },
+      signal: AbortSignal.timeout(7_000),
+    });
+    if (response.ok) return { ok: true, message: "Connected to Razorpay Test Mode", checkedAt };
+    if (response.status === 401) return { ok: false, message: "Razorpay rejected the Test API credentials", checkedAt };
+    return { ok: false, message: `Razorpay connection failed with status ${response.status}`, checkedAt };
+  } catch {
+    return { ok: false, message: "Razorpay could not be reached from this server", checkedAt };
+  }
+}
+
 export function verifyRazorpaySignature(rawBody: Buffer, signature: string, secret: string) {
   const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
   const received = Buffer.from(signature, "utf8");

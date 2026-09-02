@@ -72,6 +72,9 @@ export type RazorpayIntegrationStatus = {
   idempotencyLedger: boolean;
   acceptedEvents: number;
   webhookSecretConfigured: boolean;
+  apiKeysConfigured: boolean;
+  keyMode: "test" | "live" | "unknown" | "missing";
+  connection: { ok: boolean; message: string; checkedAt: string } | null;
 };
 
 export type EvaluationReport = {

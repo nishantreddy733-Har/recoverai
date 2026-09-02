@@ -1,16 +1,24 @@
 import cors from "cors";
 import express from "express";
 import { createHmac, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { loadEnvFile } from "node:process";
 import type { BatchResult, Metrics, RazorpayIntegrationStatus, RecoveryAction, RecoveryCase } from "@recover-ai/shared";
 import { ExplainableDecisionEngine } from "./decisionEngine.js";
 import { applyGuardrails } from "./guardrails.js";
 import { addAudit, auditEvents, cases, hasProcessedEvent, persistStore, processedEventIds, recordProcessedEvent, resetStore } from "./store.js";
-import { recoveryCaseFromWebhook, verifyRazorpaySignature, type RazorpayWebhook } from "./razorpay.js";
+import { detectRazorpayKeyMode, recoveryCaseFromWebhook, verifyRazorpaySignature, verifyRazorpayTestConnection, type RazorpayConnectionResult, type RazorpayWebhook } from "./razorpay.js";
 import { evaluateDecisionEngine } from "./evaluation.js";
+
+for (const candidate of [join(process.cwd(), ".env"), join(process.cwd(), "..", ".env")]) {
+  if (existsSync(candidate)) { loadEnvFile(candidate); break; }
+}
 
 const app = express();
 const engine = new ExplainableDecisionEngine();
 const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET ?? "recoverai_test_webhook_secret_32_chars";
+let razorpayConnection: RazorpayConnectionResult | null = null;
 app.use(cors());
 
 function ingestRazorpayWebhook(rawBody: Buffer, signature: string, eventId: string) {
@@ -47,8 +55,15 @@ app.get("/api/integrations/razorpay", (_req, res) => {
     mode: "test-ready", signatureVerification: true, idempotencyLedger: true,
     acceptedEvents: processedEventIds.length,
     webhookSecretConfigured: Boolean(process.env.RAZORPAY_WEBHOOK_SECRET),
+    apiKeysConfigured: Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET),
+    keyMode: detectRazorpayKeyMode(process.env.RAZORPAY_KEY_ID),
+    connection: razorpayConnection,
   };
   res.json(status);
+});
+app.post("/api/integrations/razorpay/verify", async (_req, res) => {
+  razorpayConnection = await verifyRazorpayTestConnection(process.env.RAZORPAY_KEY_ID, process.env.RAZORPAY_KEY_SECRET);
+  res.status(razorpayConnection.ok ? 200 : 400).json(razorpayConnection);
 });
 app.get("/api/evaluation", (_req, res) => res.json(evaluateDecisionEngine(engine)));
 

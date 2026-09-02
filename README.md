@@ -45,9 +45,13 @@ repository is published. On Windows PowerShell, the commands are the same.
 
 ### Environment setup
 
-Copy `.env.example` to `.env` and replace the development webhook secret before
-connecting an external webhook. The local dashboard demo works without this step and
-uses a clearly identified development-only fallback secret.
+Copy `.env.example` to `.env`, enter the downloaded Test Mode Key ID and Key Secret,
+and choose a separate webhook secret before connecting an external webhook. The local
+synthetic demo works without credentials and uses a development-only webhook fallback.
+
+After restarting the server, the dashboard shows **Test keys configured** and enables
+**Verify Test Mode**. That check makes one read-only request for at most one payment and
+returns only a connection result; it never sends the secret to the browser or logs it.
 
 Never commit `.env`, a Razorpay key secret, or a production webhook secret.
 
@@ -131,13 +135,16 @@ application never presents simulated money as production revenue.
 | `POST /api/cases/reset` | Restore the synthetic demonstration batch |
 | `GET /api/metrics` | Read recovery metrics |
 | `GET /api/evaluation` | Read held-out decision-quality results |
+| `GET /api/integrations/razorpay` | Read credential-safe integration status |
+| `POST /api/integrations/razorpay/verify` | Verify Test Mode credentials with a read-only API request |
 | `POST /api/webhooks/razorpay` | Receive a signed Razorpay-style webhook |
 | `POST /api/demo/razorpay-failure` | Generate a safe local signed test event |
 
 ## Razorpay Test Mode status
 
-Razorpay Test Mode is **not connected yet**. No Razorpay API key ID, API key secret or
-merchant credential was obtained for this repository.
+Razorpay Test Mode remains disconnected until the repository owner privately enters
+their downloaded credentials in `.env` and runs the verification check. Credentials
+are never returned through the API or browser.
 
 The current integration implements the server-side `payment.failed` webhook contract:
 raw-body HMAC-SHA256 signature validation, provider-field normalization and persistent
@@ -156,9 +163,10 @@ To validate genuine Razorpay Test Mode delivery:
 6. Confirm the accepted event creates exactly one case and that replaying the same
    event ID does not create a duplicate.
 
-The current project does not create Razorpay orders or payments, so Test API keys are
-not consumed by the code yet. They should be added only when an outbound Razorpay API
-adapter is implemented. Test Mode still uses simulated payments—no real money moves.
+The Test Mode adapter uses API keys only for a read-only connection check against the
+Payments API. The project still does not create Razorpay orders or payments. A checkout
+or order-creation adapter is required before it can trigger genuine Test Mode payment
+failures. Test Mode uses simulated payments—no real money moves.
 
 Official references:
 

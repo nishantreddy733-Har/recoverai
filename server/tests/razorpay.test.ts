@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { mapRazorpayFailureCode, recoveryCaseFromWebhook, verifyRazorpaySignature } from "../src/razorpay.js";
+import { detectRazorpayKeyMode, mapRazorpayFailureCode, recoveryCaseFromWebhook, verifyRazorpaySignature, verifyRazorpayTestConnection } from "../src/razorpay.js";
 
 describe("Razorpay webhook adapter", () => {
   it("verifies the raw body HMAC signature", () => {
@@ -27,5 +27,26 @@ describe("Razorpay webhook adapter", () => {
 
   it("ignores unrelated webhook events", () => {
     expect(recoveryCaseFromWebhook({ event: "payment.captured" })).toBeNull();
+  });
+
+  it("accepts only Test Mode key identifiers", () => {
+    expect(detectRazorpayKeyMode("rzp_test_example")).toBe("test");
+    expect(detectRazorpayKeyMode("rzp_live_example")).toBe("live");
+    expect(detectRazorpayKeyMode(undefined)).toBe("missing");
+  });
+
+  it("verifies Test Mode credentials without exposing secrets", async () => {
+    const request = (async (_url: string | URL | Request, init?: RequestInit) => {
+      expect(init?.headers).toMatchObject({ Authorization: expect.stringMatching(/^Basic /) });
+      return new Response(JSON.stringify({ entity: "collection", count: 0, items: [] }), { status: 200 });
+    }) as typeof fetch;
+    const result = await verifyRazorpayTestConnection("rzp_test_example", "private_secret", request);
+    expect(result).toMatchObject({ ok: true, message: "Connected to Razorpay Test Mode" });
+    expect(JSON.stringify(result)).not.toContain("private_secret");
+  });
+
+  it("blocks Live Mode credentials", async () => {
+    const request = (async () => new Response(null, { status: 200 })) as typeof fetch;
+    await expect(verifyRazorpayTestConnection("rzp_live_example", "secret", request)).resolves.toMatchObject({ ok: false, message: "Only Razorpay Test Mode keys are allowed" });
   });
 });

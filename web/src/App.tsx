@@ -15,6 +15,7 @@ export default function App() {
   const [batchResult, setBatchResult] = useState<BatchResult | null>(null);
   const [razorpay, setRazorpay] = useState<RazorpayIntegrationStatus | null>(null);
   const [webhookBusy, setWebhookBusy] = useState(false);
+  const [connectionBusy, setConnectionBusy] = useState(false);
   const [webhookMessage, setWebhookMessage] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationReport | null>(null);
   const [caseFilter, setCaseFilter] = useState("all");
@@ -55,6 +56,11 @@ export default function App() {
     } else setWebhookMessage(result.error ?? "Test event could not be accepted");
     setWebhookBusy(false);
   };
+  const verifyTestConnection = async () => {
+    setConnectionBusy(true);
+    await fetch("/api/integrations/razorpay/verify", { method: "POST" });
+    await refresh(); setConnectionBusy(false);
+  };
   const selected = cases.find((item) => item.id === selectedId) ?? null;
   const filteredCases = cases.filter((item) => {
     const matchesStatus = caseFilter === "all" || item.status === caseFilter;
@@ -69,7 +75,7 @@ export default function App() {
     <section className="metrics">
       <article><span>Revenue at risk</span><strong>{money(metrics?.totalAtRisk ?? 0)}</strong></article><article><span>Recovered</span><strong>{money(metrics?.recoveredRevenue ?? 0)}</strong></article><article><span>Recovery rate</span><strong>{((metrics?.recoveryRate ?? 0) * 100).toFixed(1)}%</strong></article><article><span>Cases processed</span><strong>{metrics?.casesProcessed ?? 0}/{cases.length}</strong></article>
     </section>
-    <section className="integration-strip"><div><span className="integration-mark">R</span><div><strong>Razorpay webhook intake</strong><p>Test-mode adapter · raw-body signatures · persistent duplicate protection</p>{webhookMessage && <em>{webhookMessage}</em>}</div></div><div className="integration-checks"><span>Signature verified</span><span>Idempotency active</span><b>{razorpay?.acceptedEvents ?? 0} events accepted</b><button disabled={webhookBusy} onClick={() => void sendTestWebhook()}>{webhookBusy ? "Sending…" : "Send test failure"}</button></div></section>
+    <section className="integration-strip"><div><span className="integration-mark">R</span><div><strong>Razorpay Test Mode integration</strong><p>API credentials · raw-body signatures · persistent duplicate protection</p>{webhookMessage && <em>{webhookMessage}</em>}{razorpay?.connection && <em className={razorpay.connection.ok ? "connection-ok" : "connection-error"}>{razorpay.connection.message}</em>}</div></div><div className="integration-checks"><span>Signature verified</span><span>Idempotency active</span><b>{razorpay?.apiKeysConfigured ? "Test keys configured" : "API keys not configured"}</b><b>{razorpay?.acceptedEvents ?? 0} events accepted</b><button className="verify-button" disabled={connectionBusy || !razorpay?.apiKeysConfigured} onClick={() => void verifyTestConnection()}>{connectionBusy ? "Checking…" : "Verify Test Mode"}</button><button disabled={webhookBusy} onClick={() => void sendTestWebhook()}>{webhookBusy ? "Sending…" : "Send test failure"}</button></div></section>
     <section className="evaluation-panel"><div className="evaluation-copy"><span className="eyebrow">HELD-OUT EVALUATION</span><h2>Decision quality, measured</h2><p>{evaluation?.dataset ?? "Loading evaluation…"}. Labels are separate from the live 50-case recovery batch.</p></div><div className="evaluation-stats"><article><span>Exact-action accuracy</span><strong>{((evaluation?.decisionAccuracy ?? 0) * 100).toFixed(0)}%</strong><small>{evaluation?.correctDecisions ?? 0}/{evaluation?.totalScenarios ?? 0} decisions</small></article><article><span>Unsafe automations</span><strong>{evaluation?.unsafeAutomationCount ?? 0}</strong><small>lost, stolen or ambiguous cases</small></article><article><span>Exceptions</span><strong>{evaluation?.exceptions.length ?? 0}</strong><small>honestly reported mismatches</small></article></div><div className="action-breakdown">{evaluation && Object.entries(evaluation.actionBreakdown).map(([action, count]) => <span key={action}><b>{count}</b> {label(action)}</span>)}</div></section>
     <section><div className="section-title"><div><h2>Failed renewals</h2><p>50-case synthetic evaluation batch · select a case to inspect its evidence.</p></div><div className="batch-actions"><button className="reset-button" disabled={batchBusy || cases.every((item) => item.status === "pending")} onClick={() => void resetBatch()}>Reset batch</button><button className="batch-button" disabled={batchBusy || cases.every((item) => item.status !== "pending")} onClick={() => void processBatch()}>{batchBusy ? "Working…" : "Run pending batch"}</button></div></div>
       {batchResult && <div className="batch-result"><strong>Batch complete</strong><span>{batchResult.processed} processed</span><span>{batchResult.recovered} recovered</span><span>{money(batchResult.recoveredRevenue)} restored</span><span>{batchResult.escalated} escalated</span><span>{batchResult.stopped} stopped</span></div>}
