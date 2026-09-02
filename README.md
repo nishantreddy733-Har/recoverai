@@ -140,6 +140,7 @@ application never presents simulated money as production revenue.
 | `POST /api/integrations/razorpay/test-order` | Create a ₹499 Test Mode order for Standard Checkout |
 | `POST /api/webhooks/razorpay` | Receive a signed Razorpay-style webhook |
 | `POST /api/demo/razorpay-failure` | Generate a safe local signed test event |
+| `GET /api/health` | Deployment health check |
 
 ## Razorpay Test Mode status
 

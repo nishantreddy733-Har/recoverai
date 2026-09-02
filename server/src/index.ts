@@ -42,6 +42,7 @@ function ingestRazorpayWebhook(rawBody: Buffer, signature: string, eventId: stri
 }
 
 app.post("/api/webhooks/razorpay", express.raw({ type: "application/json" }), (req, res) => {
+  if (!process.env.RAZORPAY_WEBHOOK_SECRET) return res.status(503).json({ error: "Razorpay webhook secret is not configured" });
   const result = ingestRazorpayWebhook(Buffer.isBuffer(req.body) ? req.body : Buffer.from(""), req.header("x-razorpay-signature") ?? "", req.header("x-razorpay-event-id") ?? "");
   return res.status(result.code).json(result.body);
 });
@@ -142,4 +143,13 @@ app.get("/api/metrics", (_req, res) => {
   res.json(metrics);
 });
 
-app.listen(3001, () => console.log("RecoverAI API listening on http://localhost:3001"));
+app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+
+const webDist = [join(process.cwd(), "web", "dist"), join(process.cwd(), "..", "web", "dist")].find(existsSync);
+if (webDist) {
+  app.use(express.static(webDist));
+  app.get("/{*path}", (_req, res) => res.sendFile(join(webDist, "index.html")));
+}
+
+const port = Number(process.env.PORT ?? 3001);
+app.listen(port, () => console.log(`RecoverAI listening on port ${port}`));

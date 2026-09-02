@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w web\"",
     "build": "npm run build -w shared && npm run build -w server && npm run build -w web",
+    "start": "node server/dist/src/index.js",
     "test": "npm run test -w server"
   },
   "workspaces": ["shared", "server", "web"],
