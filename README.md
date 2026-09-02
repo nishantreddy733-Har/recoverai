@@ -137,6 +137,7 @@ application never presents simulated money as production revenue.
 | `GET /api/evaluation` | Read held-out decision-quality results |
 | `GET /api/integrations/razorpay` | Read credential-safe integration status |
 | `POST /api/integrations/razorpay/verify` | Verify Test Mode credentials with a read-only API request |
+| `POST /api/integrations/razorpay/test-order` | Create a ₹499 Test Mode order for Standard Checkout |
 | `POST /api/webhooks/razorpay` | Receive a signed Razorpay-style webhook |
 | `POST /api/demo/razorpay-failure` | Generate a safe local signed test event |
 
@@ -163,10 +164,10 @@ To validate genuine Razorpay Test Mode delivery:
 6. Confirm the accepted event creates exactly one case and that replaying the same
    event ID does not create a duplicate.
 
-The Test Mode adapter uses API keys only for a read-only connection check against the
-Payments API. The project still does not create Razorpay orders or payments. A checkout
-or order-creation adapter is required before it can trigger genuine Test Mode payment
-failures. Test Mode uses simulated payments—no real money moves.
+The Test Mode adapter verifies the account, creates Orders server-side and opens Razorpay
+Standard Checkout without exposing the API secret. Checkout Test Mode uses simulated
+payments—no real money moves. Automatic server-side failure intake still requires the
+public webhook URL and matching webhook secret described above.
 
 Official references:
 

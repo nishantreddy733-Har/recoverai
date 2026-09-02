@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { AuditEvent, BatchResult, EvaluationReport, Metrics, RazorpayIntegrationStatus, RecoveryCase } from "@recover-ai/shared";
 
+declare global { interface Window { Razorpay?: new (options: Record<string, unknown>) => { open: () => void; on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void } } }
+
 const money = (value: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
 const label = (value: string) => value.replaceAll("_", " ");
 const eventLabels: Record<AuditEvent["type"], string> = { failure_received: "Failure received", decision_made: "Decision made", action_executed: "Action executed", outcome_recorded: "Outcome recorded" };
@@ -16,6 +18,7 @@ export default function App() {
   const [razorpay, setRazorpay] = useState<RazorpayIntegrationStatus | null>(null);
   const [webhookBusy, setWebhookBusy] = useState(false);
   const [connectionBusy, setConnectionBusy] = useState(false);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [webhookMessage, setWebhookMessage] = useState<string | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationReport | null>(null);
   const [caseFilter, setCaseFilter] = useState("all");
@@ -61,6 +64,22 @@ export default function App() {
     await fetch("/api/integrations/razorpay/verify", { method: "POST" });
     await refresh(); setConnectionBusy(false);
   };
+  const openTestCheckout = async () => {
+    setCheckoutBusy(true); setWebhookMessage(null);
+    try {
+      if (!window.Razorpay) await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script"); script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(); script.onerror = () => reject(new Error("Checkout could not be loaded")); document.head.appendChild(script);
+      });
+      const response = await fetch("/api/integrations/razorpay/test-order", { method: "POST" });
+      const order = await response.json() as { id?: string; amount?: number; currency?: string; keyId?: string; error?: string };
+      if (!response.ok || !order.id || !window.Razorpay) throw new Error(order.error ?? "Test order could not be created");
+      const checkout = new window.Razorpay({ key: order.keyId, order_id: order.id, amount: order.amount, currency: order.currency, name: "RecoverAI", description: "Test renewal · no real money", theme: { color: "#227a4c" }, handler: () => setWebhookMessage("Test payment succeeded. Webhook confirmation requires the public endpoint.") });
+      checkout.on("payment.failed", (event) => setWebhookMessage(`Checkout failure simulated: ${event.error?.description ?? "payment failed"}. Public webhook registration is still required for automatic intake.`));
+      checkout.open();
+    } catch (error) { setWebhookMessage(error instanceof Error ? error.message : "Checkout could not be opened"); }
+    finally { setCheckoutBusy(false); }
+  };
   const selected = cases.find((item) => item.id === selectedId) ?? null;
   const filteredCases = cases.filter((item) => {
     const matchesStatus = caseFilter === "all" || item.status === caseFilter;
@@ -75,7 +94,7 @@ export default function App() {
     <section className="metrics">
       <article><span>Revenue at risk</span><strong>{money(metrics?.totalAtRisk ?? 0)}</strong></article><article><span>Recovered</span><strong>{money(metrics?.recoveredRevenue ?? 0)}</strong></article><article><span>Recovery rate</span><strong>{((metrics?.recoveryRate ?? 0) * 100).toFixed(1)}%</strong></article><article><span>Cases processed</span><strong>{metrics?.casesProcessed ?? 0}/{cases.length}</strong></article>
     </section>
-    <section className="integration-strip"><div><span className="integration-mark">R</span><div><strong>Razorpay Test Mode integration</strong><p>API credentials · raw-body signatures · persistent duplicate protection</p>{webhookMessage && <em>{webhookMessage}</em>}{razorpay?.connection && <em className={razorpay.connection.ok ? "connection-ok" : "connection-error"}>{razorpay.connection.message}</em>}</div></div><div className="integration-checks"><span>Signature verified</span><span>Idempotency active</span><b>{razorpay?.apiKeysConfigured ? "Test keys configured" : "API keys not configured"}</b><b>{razorpay?.acceptedEvents ?? 0} events accepted</b><button className="verify-button" disabled={connectionBusy || !razorpay?.apiKeysConfigured} onClick={() => void verifyTestConnection()}>{connectionBusy ? "Checking…" : "Verify Test Mode"}</button><button disabled={webhookBusy} onClick={() => void sendTestWebhook()}>{webhookBusy ? "Sending…" : "Send test failure"}</button></div></section>
+    <section className="integration-strip"><div><span className="integration-mark">R</span><div><strong>Razorpay Test Mode integration</strong><p>API credentials · Test Checkout · raw-body signatures · persistent duplicate protection</p>{webhookMessage && <em>{webhookMessage}</em>}{razorpay?.connection && <em className={razorpay.connection.ok ? "connection-ok" : "connection-error"}>{razorpay.connection.message}</em>}</div></div><div className="integration-checks"><span>Signature verified</span><span>Idempotency active</span><b>{razorpay?.apiKeysConfigured ? "Test keys configured" : "API keys not configured"}</b><b>{razorpay?.acceptedEvents ?? 0} events accepted</b><button className="verify-button" disabled={connectionBusy || !razorpay?.apiKeysConfigured} onClick={() => void verifyTestConnection()}>{connectionBusy ? "Checking…" : "Verify Test Mode"}</button><button className="checkout-button" disabled={checkoutBusy || !razorpay?.connection?.ok} onClick={() => void openTestCheckout()}>{checkoutBusy ? "Opening…" : "Open Test Checkout"}</button><button disabled={webhookBusy} onClick={() => void sendTestWebhook()}>{webhookBusy ? "Sending…" : "Send test failure"}</button></div></section>
     <section className="evaluation-panel"><div className="evaluation-copy"><span className="eyebrow">HELD-OUT EVALUATION</span><h2>Decision quality, measured</h2><p>{evaluation?.dataset ?? "Loading evaluation…"}. Labels are separate from the live 50-case recovery batch.</p></div><div className="evaluation-stats"><article><span>Exact-action accuracy</span><strong>{((evaluation?.decisionAccuracy ?? 0) * 100).toFixed(0)}%</strong><small>{evaluation?.correctDecisions ?? 0}/{evaluation?.totalScenarios ?? 0} decisions</small></article><article><span>Unsafe automations</span><strong>{evaluation?.unsafeAutomationCount ?? 0}</strong><small>lost, stolen or ambiguous cases</small></article><article><span>Exceptions</span><strong>{evaluation?.exceptions.length ?? 0}</strong><small>honestly reported mismatches</small></article></div><div className="action-breakdown">{evaluation && Object.entries(evaluation.actionBreakdown).map(([action, count]) => <span key={action}><b>{count}</b> {label(action)}</span>)}</div></section>
     <section><div className="section-title"><div><h2>Failed renewals</h2><p>50-case synthetic evaluation batch · select a case to inspect its evidence.</p></div><div className="batch-actions"><button className="reset-button" disabled={batchBusy || cases.every((item) => item.status === "pending")} onClick={() => void resetBatch()}>Reset batch</button><button className="batch-button" disabled={batchBusy || cases.every((item) => item.status !== "pending")} onClick={() => void processBatch()}>{batchBusy ? "Working…" : "Run pending batch"}</button></div></div>
       {batchResult && <div className="batch-result"><strong>Batch complete</strong><span>{batchResult.processed} processed</span><span>{batchResult.recovered} recovered</span><span>{money(batchResult.recoveredRevenue)} restored</span><span>{batchResult.escalated} escalated</span><span>{batchResult.stopped} stopped</span></div>}

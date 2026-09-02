@@ -8,6 +8,7 @@ export type RazorpayWebhook = {
 };
 
 export type RazorpayConnectionResult = { ok: boolean; message: string; checkedAt: string };
+export type RazorpayTestOrder = { id: string; amount: number; currency: string; keyId: string };
 
 export function detectRazorpayKeyMode(keyId: string | undefined): "test" | "live" | "unknown" | "missing" {
   if (!keyId) return "missing";
@@ -35,6 +36,26 @@ export async function verifyRazorpayTestConnection(
   } catch {
     return { ok: false, message: "Razorpay could not be reached from this server", checkedAt };
   }
+}
+
+export async function createRazorpayTestOrder(
+  keyId: string | undefined,
+  keySecret: string | undefined,
+  request: typeof fetch = fetch,
+): Promise<RazorpayTestOrder> {
+  if (!keyId || !keySecret) throw new Error("Test API keys are not configured");
+  if (detectRazorpayKeyMode(keyId) !== "test") throw new Error("Only Razorpay Test Mode keys are allowed");
+  const amount = 49900;
+  const response = await request("https://api.razorpay.com/v1/orders", {
+    method: "POST",
+    headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ amount, currency: "INR", receipt: `recoverai_${Date.now()}`, notes: { subscription_id: `sub_checkout_${Date.now()}`, customer_name: "RecoverAI Test Customer" } }),
+    signal: AbortSignal.timeout(7_000),
+  });
+  if (!response.ok) throw new Error(response.status === 401 ? "Razorpay rejected the Test API credentials" : `Razorpay order creation failed with status ${response.status}`);
+  const order = await response.json() as { id?: unknown; amount?: unknown; currency?: unknown };
+  if (typeof order.id !== "string") throw new Error("Razorpay returned an invalid order");
+  return { id: order.id, amount: Number(order.amount ?? amount), currency: String(order.currency ?? "INR"), keyId };
 }
 
 export function verifyRazorpaySignature(rawBody: Buffer, signature: string, secret: string) {

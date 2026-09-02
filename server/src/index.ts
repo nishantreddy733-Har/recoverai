@@ -8,7 +8,7 @@ import type { BatchResult, Metrics, RazorpayIntegrationStatus, RecoveryAction, R
 import { ExplainableDecisionEngine } from "./decisionEngine.js";
 import { applyGuardrails } from "./guardrails.js";
 import { addAudit, auditEvents, cases, hasProcessedEvent, persistStore, processedEventIds, recordProcessedEvent, resetStore } from "./store.js";
-import { detectRazorpayKeyMode, recoveryCaseFromWebhook, verifyRazorpaySignature, verifyRazorpayTestConnection, type RazorpayConnectionResult, type RazorpayWebhook } from "./razorpay.js";
+import { createRazorpayTestOrder, detectRazorpayKeyMode, recoveryCaseFromWebhook, verifyRazorpaySignature, verifyRazorpayTestConnection, type RazorpayConnectionResult, type RazorpayWebhook } from "./razorpay.js";
 import { evaluateDecisionEngine } from "./evaluation.js";
 
 for (const candidate of [join(process.cwd(), ".env"), join(process.cwd(), "..", ".env")]) {
@@ -64,6 +64,13 @@ app.get("/api/integrations/razorpay", (_req, res) => {
 app.post("/api/integrations/razorpay/verify", async (_req, res) => {
   razorpayConnection = await verifyRazorpayTestConnection(process.env.RAZORPAY_KEY_ID, process.env.RAZORPAY_KEY_SECRET);
   res.status(razorpayConnection.ok ? 200 : 400).json(razorpayConnection);
+});
+app.post("/api/integrations/razorpay/test-order", async (_req, res) => {
+  try {
+    res.json(await createRazorpayTestOrder(process.env.RAZORPAY_KEY_ID, process.env.RAZORPAY_KEY_SECRET));
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : "Test order could not be created" });
+  }
 });
 app.get("/api/evaluation", (_req, res) => res.json(evaluateDecisionEngine(engine)));
 
