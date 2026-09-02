@@ -30,8 +30,8 @@ No Razorpay account or credentials are required for the local synthetic demo.
 ## Clone and run
 
 ```bash
-git clone <PUBLIC_REPOSITORY_URL>
-cd revenue-recovery-ai
+git clone https://github.com/nishantreddy733-Har/recoverai.git
+cd recoverai
 npm install
 npm run build
 npm test
@@ -40,8 +40,8 @@ npm run dev
 
 Open `http://localhost:5173`. The API runs on `http://localhost:3001`.
 
-The public repository URL is intentionally a placeholder until the prepared local Git
-repository is published. On Windows PowerShell, the commands are the same.
+Public demo: https://recoverai-kohu.onrender.com. On Windows PowerShell, the commands
+are the same.
 
 ### Environment setup
 
@@ -144,9 +144,10 @@ application never presents simulated money as production revenue.
 
 ## Razorpay Test Mode status
 
-Razorpay Test Mode remains disconnected until the repository owner privately enters
-their downloaded credentials in `.env` and runs the verification check. Credentials
-are never returned through the API or browser.
+The deployed demo is connected to Razorpay Test Mode, creates real Test Orders and
+opens Standard Checkout. Test payments are simulated by Razorpay and move no money.
+Credentials are stored only in private environment variables and are never returned
+through the API or browser.
 
 The current integration implements the server-side `payment.failed` webhook contract:
 raw-body HMAC-SHA256 signature validation, provider-field normalization and persistent
@@ -157,9 +158,9 @@ To validate genuine Razorpay Test Mode delivery:
 
 1. The Razorpay account Owner or Admin enables Test Mode and generates Test API keys
    from **Account & Settings → API Keys**. Keep the key secret outside source control.
-2. Deploy RecoverAI to a public HTTPS address.
-3. Set `RAZORPAY_WEBHOOK_SECRET` in the hosted server environment.
-4. In Razorpay Test Mode, add `https://<host>/api/webhooks/razorpay` as a webhook,
+2. Use the deployed HTTPS address `https://recoverai-kohu.onrender.com`.
+3. Keep `RAZORPAY_WEBHOOK_SECRET` in the hosted server environment.
+4. In Razorpay Test Mode, add `https://recoverai-kohu.onrender.com/api/webhooks/razorpay` as a webhook,
    choose the same webhook secret and subscribe to `payment.failed`.
 5. Use a separate Razorpay Test Mode checkout/order flow to trigger a test failure.
 6. Confirm the accepted event creates exactly one case and that replaying the same
@@ -167,8 +168,9 @@ To validate genuine Razorpay Test Mode delivery:
 
 The Test Mode adapter verifies the account, creates Orders server-side and opens Razorpay
 Standard Checkout without exposing the API secret. Checkout Test Mode uses simulated
-payments—no real money moves. Automatic server-side failure intake still requires the
-public webhook URL and matching webhook secret described above.
+payments—no real money moves. The public webhook receiver is deployed and verified with
+signed local events; Razorpay Dashboard registration remains pending because this test
+account currently routes webhook settings through merchant onboarding.
 
 Official references:
 

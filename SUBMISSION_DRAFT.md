@@ -91,7 +91,9 @@ React operator dashboard + case explanation + audit timeline
 - Evaluation and recovery batches use synthetic data.
 - The intelligence layer is currently a rules baseline, not a trained model.
 - The local JSON store must be replaced with a transactional database for production.
-- Real Razorpay test-mode credentials and public webhook hosting are not connected yet.
+- Razorpay Test API, Orders and Checkout are connected on the public Render deployment.
+- Razorpay-originated webhook delivery remains pending dashboard registration; the public
+  receiver is validated with signed events, invalid-signature rejection and idempotency tests.
 - Production execution also needs a durable queue, observability and customer consent policy.
 
 ## Five-minute demonstration outline
